@@ -1,1 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulário de Terrenos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #007BFF;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], input[type="url"], select, textarea {
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+        }
+        textarea {
+            resize: vertical;
+            height: 100px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        img {
+            display: block;
+            width: 150px;
+            margin: 0 auto 20px;
+        }
+        .page {
+            display: none;
+        }
+        .active {
+            display: block;
+        }
+        #mapCentral, #mapTerreno {
+            height: 400px;
+            width: 100%;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        /* Estilo para as caixas de pesquisa */
+        .controls {
+            background-color: #fff;
+            font-family: Roboto, Arial, sans-serif;
+            font-size: 15px;
+            font-weight: 300;
+            margin-left: 12px;
+            padding: 0 11px 0 13px;
+            text-overflow: ellipsis;
+            width: 300px;
+            height: 36px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.3);
+            margin-top: 10px;
+        }
+        .controls:focus {
+            border-color: #4d90fe;
+        }
+        /* Estilos para os botões de medição */
+        .measurement-controls button {
+            margin: 5px 5px 0 0;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+        }
+        .measurement-controls button.measure-btn {
+            background-color: #28a745; /* Verde */
+        }
+        .measurement-controls button.measure-btn.active {
+            background-color: #ffc107; /* Amarelo */
+        }
+        .measurement-controls button.clear-btn {
+            background-color: #dc3545; /* Vermelho */
+        }
+        .distance-display {
+            background-color: white;
+            padding: 5px 10px;
+            margin-top: 5px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.3);
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            display: none; /* Incialmente oculto */
+        }
+        .info-window-content {
+            font-size: 0.9em;
+        }
+        .info-window-content h3 {
+            margin-top: 0;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+            color: #333;
+        }
+        .info-window-content p {
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://raw.githubusercontent.com/fabiogrisard/addcasa/refs/heads/main/logoexatanovo.JPG" alt="Logotipo">
+        
+        <!-- Página 1 -->
+        <div id="page1" class="page active">
+            <h1>Formulário de Terrenos</h1>
+            <form id="configForm">
+                <label for="planilhaNome">Selecione a Planilha:</label>
+                <select id="planilhaNome" name="planilhaNome" required>
+                    <option value="">Carregando...</option>
+                </select>
 
+                <label for="folderId">ID da Pasta no Google Drive:</label>
+                <input type="text" id="folderId" name="folderId" required>
+
+                <label for="spreadsheetId">ID da Planilha no Google Sheets:</label>
+                <input type="text" id="spreadsheetId" name="spreadsheetId" required>
+
+                <label for="centralLocation">Localização Central da Cidade:</label>
+                <input type="text" id="centralLocation" name="centralLocation" required>
+
+                <div id="mapCentral"></div>
+
+                <button type="button" onclick="goToPage2()">Próxima Página</button>
+            </form>
+        </div>
+
+        <!-- Página 2 -->
+        <div id="page2" class="page">
+            <h1>Inserção de Dados do Terreno</h1>
+            <form id="dataForm">
+                <label for="numeroDado">Número do Terreno:</label>
+                <input type="text" id="numeroDado" name="numeroDado" required>
+
+                <label for="link">Link do Anúncio:</label>
+                <div style="display: flex; align-items: center;">
+                    <input type="url" id="link" name="link">
+                    <button type="button" onclick="pasteFromClipboard('link')" style="margin-left: 10px; margin-top: 0; padding: 8px;">Colar</button>
+                </div>
+
+                <label for="infoImovel">Informações do Imóvel:</label>
+                <div style="display: flex; align-items: flex-start;">
+                    <textarea id="infoImovel" name="infoImovel"></textarea>
+                    <button type="button" onclick="pasteFromClipboard('infoImovel')" style="margin-left: 10px; margin-top: 0; padding: 8px;">Colar</button>
+                </div>
+
+                <label for="coordenadas">Coordenadas:</label>
+                <input type="text" id="coordenadas" name="coordenadas" required>
+
+                <div id="mapTerreno"></div>
+                <button type="button" onclick="getCurrentLocation()">Localizar Minha Posição</button>
+
+                <label for="tipoRua">Tipo de Rua:</label>
+                <select id="tipoRua" name="tipoRua" required>
+                    <option value="3">Rua de Asfalto</option>
+                    <option value="1">Rua de Chão</option>
+                    <option value="2">Rua de Calçamento</option>
+                </select>
+
+                <label for="esquina">É esquina?</label>
+                <select id="esquina" name="esquina" required>
+                    <option value="1">Sim</option>
+                    <option value="0">Não</option>
+                </select>
+
+                <label for="vocacao">Vocação do Terreno:</label>
+                <select id="vocacao" name="vocacao" required>
+                    <option value="1">Residencial</option>
+                    <option value="2">Comercial Pólo Secundário</option>
+                    <option value="3">Comercial Pólo Primário</option>
+                </select>
+
+                <button type="submit">Enviar Dados</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- Variáveis globais para as instâncias dos mapas e ferramentas de medição ---
+        let mapCentralInstance;
+        let mapTerrenoInstance;
+
+        let measurementMode = false;
+        let measurementPoints = [];
+        let measurementLine = null;
+        let measurementMarkers = [];
+        let distanceDisplayElement = null; // Elemento DIV para exibir a distância
+
+        // Marcador para a localização atual do usuário no mapTerreno
+        let currentLocationMarker = null;
+
+        // No carregamento da página, carregar planilhas existentes e inicializar mapas
+        window.onload = function() {
+            loadPlanilhas();
+            // initMapCentral() é chamado pelo callback da API do Google Maps
+            // initMapTerreno() também será chamado após a API estar pronta
+        };
+
+        function loadPlanilhas() {
+            const url = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRuuja7Tveui7EINl-hHXdHtK9JI8qLnx4bELPAtRQcstNNzN0PMt7_KfsSjuuubl40xLUWaGzyl1AY/pub?gid=0&single=true&output=csv';
+            
+            fetch(url)
+                .then(response => response.text())
+                .then(csv => {
+                    const linhas = csv.split('\n');
+                    const select = document.getElementById('planilhaNome');
+                    select.innerHTML = ''; // Limpa o "Carregando..."
+
+                    linhas.forEach(linha => {
+                        const colunas = linha.split(',');
+                        if (colunas.length === 3) {
+                            const nome = colunas[0].trim();
+                            const folderId = colunas[1].trim();
+                            const spreadsheetId = colunas[2].trim();
+
+                            const option = document.createElement('option');
+                            option.value = `${folderId},${spreadsheetId}`; // Armazena ambos os IDs
+                            option.textContent = nome;
+                            select.appendChild(option);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar planilhas:', error);
+                    const select = document.getElementById('planilhaNome');
+                    select.innerHTML = '<option value="">Erro ao carregar</option>';
+                });
+        }
+
+        // Ao selecionar uma planilha, preencher IDs
+        document.getElementById('planilhaNome').addEventListener('change', function() {
+            const [folderId, spreadsheetId] = this.value.split(',');
+            document.getElementById('folderId').value = folderId || '';
+            document.getElementById('spreadsheetId').value = spreadsheetId || '';
+        });
+
+        function goToPage2() {
+            const folderId = document.getElementById('folderId').value;
+            const spreadsheetId = document.getElementById('spreadsheetId').value;
+            const centralLocation = document.getElementById('centralLocation').value;
+
+            if (folderId && spreadsheetId && centralLocation) {
+                localStorage.setItem('folderId', folderId);
+                localStorage.setItem('spreadsheetId', spreadsheetId);
+                localStorage.setItem('centralLocation', centralLocation);
+
+                document.getElementById('page1').classList.remove('active');
+                document.getElementById('page2').classList.add('active');
+            } else {
+                alert('Por favor, preencha todos os campos.');
+            }
+        }
+
+        document.getElementById('dataForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const numeroDado = document.getElementById('numeroDado').value;
+            const link = document.getElementById('link').value;
+            const infoImovel = document.getElementById('infoImovel').value;
+            const coordenadas = document.getElementById('coordenadas').value;
+            const tipoRua = document.getElementById('tipoRua').value;
+            const esquina = document.getElementById('esquina').value;
+            const vocacao = document.getElementById('vocacao').value;
+            const centralLocation = localStorage.getItem('centralLocation');
+
+            if (!link && !infoImovel) {
+                alert('Por favor, preencha o Link do Anúncio ou as Informações do Imóvel.');
+                return;
+            }
+
+            const folderId = localStorage.getItem('folderId');
+            const spreadsheetId = localStorage.getItem('spreadsheetId');
+
+            // Calcular distância entre localizações
+            const distancia = calcularDistancia(centralLocation, coordenadas);
+
+            const dadosParaEnviar = {
+                folderId: folderId,
+                spreadsheetId: spreadsheetId,
+                numeroDado: numeroDado,
+                link: link,
+                infoImovel: infoImovel,
+                coordenadas: coordenadas,
+                tipoRua: parseInt(tipoRua),
+                esquina: parseInt(esquina),
+                vocacao: parseInt(vocacao),
+                distancia: distancia.toFixed(2)
+            };
+
+            fetch('https://n8n.serranarealty.com.br/webhook/addterreno', {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(dadosParaEnviar)
+            })
+            .then(response => {
+                console.log('Resposta recebida');
+                alert('Dados enviados com sucesso!');
+            })
+            .catch((error) => {
+                console.error('Erro:', error);
+                alert('Erro ao enviar os dados. Por favor, tente novamente.');
+            });
+        });
+
+        // Calcular distância entre duas coordenadas
+        function calcularDistancia(centralLocation, coordenadas) {
+            const [lat1, lon1] = centralLocation.split(',').map(Number);
+            const [lat2, lon2] = coordenadas.split(',').map(Number);
+
+            const R = 6371; // Raio da Terra em km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distancia = R * c; // Distância em km
+
+            return distancia;
+        }
+
+        // Inicializar e configurar o mapa para Localização Central com campo de pesquisa
+        function initMapCentral() {
+            mapCentralInstance = new google.maps.Map(document.getElementById("mapCentral"), {
+                center: { lat: -25.394552444520578, lng: -51.4582512931166 },
+                zoom: 13,
+            });
+
+            const input = document.createElement("input");
+            input.id = "pac-input-central";
+            input.className = "controls";
+            input.type = "text";
+            input.placeholder = "Pesquisar endereço";
+
+            mapCentralInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+
+            const searchBox = new google.maps.places.SearchBox(input);
+
+            mapCentralInstance.addListener("bounds_changed", () => {
+                searchBox.setBounds(mapCentralInstance.getBounds());
+            });
+
+            let searchMarkersCentral = []; // Variável local para marcadores de pesquisa deste mapa
+
+            searchBox.addListener("places_changed", () => {
+                const places = searchBox.getPlaces();
+
+                if (places.length == 0) {
+                    return;
+                }
+
+                searchMarkersCentral.forEach((marker) => {
+                    marker.setMap(null);
+                });
+                searchMarkersCentral = [];
+
+                const bounds = new google.maps.LatLngBounds();
+                places.forEach((place) => {
+                    if (!place.geometry || !place.geometry.location) {
+                        console.log("Returned place contains no geometry");
+                        return;
+                    }
+
+                    const marker = new google.maps.Marker({
+                        map: mapCentralInstance,
+                        title: place.name,
+                        position: place.geometry.location,
+                    });
+
+                    searchMarkersCentral.push(marker);
+
+                    if (place.geometry.viewport) {
+                        bounds.union(place.geometry.viewport);
+                    } else {
+                        bounds.extend(place.geometry.location);
+                    }
+
+                    document.getElementById('centralLocation').value = place.geometry.location.lat() + ',' + place.geometry.location.lng();
+                });
+                mapCentralInstance.fitBounds(bounds);
+            });
+
+            mapCentralInstance.addListener("click", (mapsMouseEvent) => {
+                const coords = mapsMouseEvent.latLng.lat() + ',' + mapsMouseEvent.latLng.lng();
+                document.getElementById('centralLocation').value = coords;
+            });
+
+            // Chama a inicialização do mapa do terreno após o mapa central, garantindo que ambos sejam criados
+            initMapTerreno();
+        }
+
+        // Inicializar e configurar o mapa para o Terreno (agora com KMZ e ferramenta de medição)
+        function initMapTerreno() {
+            mapTerrenoInstance = new google.maps.Map(document.getElementById("mapTerreno"), {
+                center: { lat: -25.252088, lng: -51.455209 }, // Centro inicial para o Paraná
+                zoom: 8, // Zoom inicial para o Paraná
+            });
+
+            // Adiciona a camada KMZ
+            const kmlLayer = new google.maps.KmlLayer(
+                "https://github.com/fabiogrisard/teste/raw/refs/heads/main/Renda%20PR%202022%20(1).kmz",
+                {
+                    map: mapTerrenoInstance,
+                    preserveViewport: false // Permite que o mapa se ajuste aos limites do KMZ
+                }
+            );
+
+            // Listener de clique para a camada KMZ (exibe informações do KMZ)
+            kmlLayer.addListener("click", function (kmlEvent) {
+                const featureData = kmlEvent.featureData;
+                let contentString = '<div class="info-window-content">';
+                contentString += `<h3>${featureData.name || 'Informação sem título'}</h3>`;
+                contentString += `<p>${featureData.description || 'Nenhuma descrição disponível.'}</p>`;
+                contentString += '</div>';
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: contentString,
+                    position: kmlEvent.latLng
+                });
+                infoWindow.open(mapTerrenoInstance);
+            });
+
+            // Listener de clique no mapa (para coordenadas e ferramenta de medição)
+            mapTerrenoInstance.addListener("click", (mapsMouseEvent) => {
+                if (!measurementMode) { // Se não estiver no modo de medição, atualiza as coordenadas do input
+                    const coords = mapsMouseEvent.latLng.lat() + ',' + mapsMouseEvent.latLng.lng();
+                    document.getElementById('coordenadas').value = coords;
+                } else { // Se estiver no modo de medição, adiciona ponto para a medição
+                    addMeasurementPoint(mapsMouseEvent.latLng);
+                }
+            });
+
+            // Barra de pesquisa de endereço
+            const input = document.createElement("input");
+            input.id = "pac-input-terreno";
+            input.className = "controls";
+            input.type = "text";
+            input.placeholder = "Pesquisar endereço";
+            mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+
+            const searchBox = new google.maps.places.SearchBox(input);
+            mapTerrenoInstance.addListener("bounds_changed", () => {
+                searchBox.setBounds(mapTerrenoInstance.getBounds());
+            });
+
+            let searchMarkersTerreno = []; // Variável local para marcadores de pesquisa deste mapa
+
+            searchBox.addListener("places_changed", () => {
+                const places = searchBox.getPlaces();
+                if (places.length == 0) {
+                    return;
+                }
+                searchMarkersTerreno.forEach((marker) => {
+                    marker.setMap(null);
+                });
+                searchMarkersTerreno = [];
+                const bounds = new google.maps.LatLngBounds();
+                places.forEach((place) => {
+                    if (!place.geometry || !place.geometry.location) {
+                        console.log("Returned place contains no geometry");
+                        return;
+                    }
+                    const marker = new google.maps.Marker({
+                        map: mapTerrenoInstance,
+                        title: place.name,
+                        position: place.geometry.location,
+                    });
+                    searchMarkersTerreno.push(marker);
+                    if (place.geometry.viewport) {
+                        bounds.union(place.geometry.viewport);
+                    } else {
+                        bounds.extend(place.geometry.location);
+                    }
+                    document.getElementById('coordenadas').value = place.geometry.location.lat() + ',' + place.geometry.location.lng();
+                });
+                mapTerrenoInstance.fitBounds(bounds);
+            });
+
+            // --- Integração da Ferramenta de Medição ---
+            const measureControlsDiv = document.createElement("div");
+            measureControlsDiv.className = "measurement-controls";
+            measureControlsDiv.style.padding = "10px";
+            measureControlsDiv.style.backgroundColor = "white";
+            measureControlsDiv.style.borderRadius = "4px";
+            measureControlsDiv.style.boxShadow = "0 2px 6px rgba(0,0,0,.3)";
+            measureControlsDiv.style.marginTop = "10px";
+            measureControlsDiv.style.marginRight = "12px"; // Para alinhar com o lado direito do mapa
+
+            const measureButton = document.createElement("button");
+            measureButton.textContent = "Medir Distância";
+            measureButton.className = "measure-btn";
+            measureButton.onclick = () => toggleMeasurementMode();
+
+            const clearMeasureButton = document.createElement("button");
+            clearMeasureButton.textContent = "Limpar Medição";
+            clearMeasureButton.className = "clear-btn";
+            clearMeasureButton.onclick = () => clearMeasurement();
+
+            distanceDisplayElement = document.createElement("div");
+            distanceDisplayElement.className = "distance-display";
+            distanceDisplayElement.textContent = "Distância: 0 m";
+
+            measureControlsDiv.appendChild(measureButton);
+            measureControlsDiv.appendChild(clearMeasureButton);
+            measureControlsDiv.appendChild(distanceDisplayElement);
+
+            mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_RIGHT].push(measureControlsDiv);
+            // -----------------------------------------------------------
+        }
+
+        // --- Funções da Ferramenta de Medição ---
+        function toggleMeasurementMode() {
+            measurementMode = !measurementMode;
+            const measureButton = mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_RIGHT].getAt(0).querySelector(".measure-btn");
+            if (measurementMode) {
+                measureButton.textContent = "Parar Medição";
+                measureButton.classList.add("active");
+                distanceDisplayElement.style.display = "block"; // Exibe a exibição de distância
+                clearMeasurement(); // Limpa qualquer medição anterior ao iniciar
+                mapTerrenoInstance.setOptions({draggableCursor: 'crosshair'}); // Muda o cursor
+            } else {
+                measureButton.textContent = "Medir Distância";
+                measureButton.classList.remove("active");
+                mapTerrenoInstance.setOptions({draggableCursor: ''}); // Volta o cursor normal
+            }
+        }
+
+        function addMeasurementPoint(latLng) {
+            measurementPoints.push(latLng);
+
+            // Adiciona um marcador para o ponto
+            const marker = new google.maps.Marker({
+                position: latLng,
+                map: mapTerrenoInstance,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    fillColor: 'red',
+                    fillOpacity: 0.8,
+                    scale: 5,
+                    strokeColor: 'white',
+                    strokeWeight: 1
+                }
+            });
+            measurementMarkers.push(marker);
+
+            if (measurementPoints.length > 1) {
+                if (measurementLine) {
+                    measurementLine.setMap(null); // Remove a linha antiga
+                }
+                measurementLine = new google.maps.Polyline({
+                    path: measurementPoints,
+                    geodesic: true, // Use o caminho geodésico para distância precisa no mundo real
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 1.0,
+                    strokeWeight: 3
+                });
+                measurementLine.setMap(mapTerrenoInstance);
+
+                let totalDistance = 0;
+                // Calcula a distância acumulada entre todos os pontos
+                for (let i = 0; i < measurementPoints.length - 1; i++) {
+                    totalDistance += google.maps.geometry.spherical.computeDistanceBetween(
+                        measurementPoints[i],
+                        measurementPoints[i+1]
+                    );
+                }
+                distanceDisplayElement.textContent = `Distância: ${totalDistance.toFixed(2)} m`;
+            } else {
+                distanceDisplayElement.textContent = `Distância: 0 m`;
+            }
+        }
+
+        function clearMeasurement() {
+            if (measurementLine) {
+                measurementLine.setMap(null);
+                measurementLine = null;
+            }
+            measurementMarkers.forEach(marker => marker.setMap(null));
+            measurementMarkers = [];
+            measurementPoints = [];
+            distanceDisplayElement.textContent = "Distância: 0 m";
+            distanceDisplayElement.style.display = "none"; // Oculta a exibição quando limpo
+            measurementMode = false; // Reinicia o modo de medição
+            const measureButton = mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_RIGHT].getAt(0).querySelector(".measure-btn");
+            measureButton.textContent = "Medir Distância";
+            measureButton.classList.remove("active");
+            mapTerrenoInstance.setOptions({draggableCursor: ''}); // Volta o cursor normal
+        }
+
+        // Função para obter a localização atual do usuário
+        function getCurrentLocation() {
+            if (navigator.geolocation && mapTerrenoInstance) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const coords = lat + ',' + lng;
+
+                    mapTerrenoInstance.setCenter({ lat: lat, lng: lng });
+                    mapTerrenoInstance.setZoom(15); // Zoom mais próximo na localização atual
+
+                    // Remove marcador de localização anterior se existir
+                    if (currentLocationMarker) {
+                        currentLocationMarker.setMap(null);
+                    }
+
+                    currentLocationMarker = new google.maps.Marker({
+                        map: mapTerrenoInstance,
+                        position: { lat: lat, lng: lng },
+                        title: "Sua Posição Atual"
+                    });
+
+                    document.getElementById('coordenadas').value = coords;
+                }, function(error) {
+                    alert('Erro ao obter a localização: ' + error.message);
+                });
+            } else {
+                alert('Geolocalização não suportada pelo navegador ou mapa ainda não carregado.');
+            }
+        }
+
+        // Função para colar texto da área de transferência
+        async function pasteFromClipboard(fieldId) {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById(fieldId).value = text;
+            } catch (err) {
+                console.error('Falha ao colar texto: ', err);
+                alert('Falha ao colar texto. Verifique as permissões do navegador.');
+            }
+        }
+    </script>
+    <!-- Inclua a API do Google Maps com sua chave de API -->
+    <!-- Adicionado 'geometry' à lista de libraries -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAryf15DN6a0iOH72GMB0IaS3qbL44E8G8&libraries=places,geometry&callback=initMapCentral" async defer></script>
+</body>
+</html>
