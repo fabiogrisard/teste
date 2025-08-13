@@ -77,6 +77,15 @@
             border-radius: 4px;
         }
         /* Estilo para as caixas de pesquisa e outros controles */
+        /* Container para os controles do mapa (pesquisa, medição), posicionados no canto superior esquerdo */
+        .map-controls-container {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 5px;
+            background-color: transparent; /* Será invisível, serve apenas para agrupar */
+            box-sizing: border-box; /* Inclui padding na largura/altura */
+        }
         .controls {
             background-color: #fff;
             font-family: Roboto, Arial, sans-serif;
@@ -89,28 +98,32 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             box-shadow: 0 2px 6px rgba(0,0,0,.3);
-            margin-bottom: 5px; /* Espaçamento entre os controles */
         }
         .controls:focus {
             border-color: #4d90fe;
         }
         /* Estilos para os botões de medição */
-        .measurement-controls button {
+        .measurement-controls-buttons {
+            display: flex;
+            gap: 5px; /* Espaçamento entre os botões */
+        }
+        .measurement-controls-buttons button {
+            margin-top: 0; /* Override do margin-top default para buttons */
             padding: 8px 12px;
             font-size: 14px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             color: white;
-            margin-right: 5px; /* Espaçamento entre botões */
+            flex-grow: 1; /* Faz os botões crescerem para preencher o espaço */
         }
-        .measurement-controls button.measure-btn {
+        .measurement-controls-buttons button.measure-btn {
             background-color: #28a745; /* Verde */
         }
-        .measurement-controls button.measure-btn.active {
+        .measurement-controls-buttons button.measure-btn.active {
             background-color: #ffc107; /* Amarelo */
         }
-        .measurement-controls button.clear-btn {
+        .measurement-controls-buttons button.clear-btn {
             background-color: #dc3545; /* Vermelho */
         }
         .distance-display {
@@ -123,6 +136,7 @@
             font-weight: bold;
             color: #333;
             display: none; /* Incialmente oculto */
+            text-align: center;
         }
         .info-window-content {
             font-size: 0.9em;
@@ -297,7 +311,8 @@
         }
 
         document.getElementById('dataForm').addEventListener('submit', function(event) {
-            event.preventDefault();
+            event.preventDefault(); // Garante que o formulário não será submetido da forma tradicional
+
             const numeroDado = document.getElementById('numeroDado').value;
             const link = document.getElementById('link').value;
             const infoImovel = document.getElementById('infoImovel').value;
@@ -312,6 +327,13 @@
                 alert('Por favor, preencha o Link do Anúncio ou as Informações do Imóvel.');
                 return;
             }
+
+            // Validação adicional para campos obrigatórios da página 2
+            if (!numeroDado || !coordenadas || !tipoRua || !esquina || !vocacao) {
+                 alert('Por favor, preencha todos os campos obrigatórios do terreno (Número do Terreno, Coordenadas, Tipo de Rua, É esquina?, Vocação).');
+                 return;
+            }
+
 
             const folderId = localStorage.getItem('folderId');
             const spreadsheetId = localStorage.getItem('spreadsheetId');
@@ -344,6 +366,11 @@
             .then(response => {
                 console.log('Resposta recebida');
                 alert('Dados enviados com sucesso!');
+                // Opcional: Limpar formulário após envio
+                document.getElementById('dataForm').reset();
+                document.getElementById('coordenadas').value = '';
+                document.getElementById('renda').value = '';
+                clearMeasurement(true); // Limpa medição e reseta modo
             })
             .catch((error) => {
                 console.error('Erro:', error);
@@ -377,7 +404,7 @@
 
             // Cria um container para os controles do mapa central
             const customControlsDivCentral = document.createElement("div");
-            customControlsDivCentral.style.cssText = "display: flex; flex-direction: column; padding: 10px; gap: 5px; background-color: transparent;";
+            customControlsDivCentral.className = "map-controls-container"; // Usar a classe nova
             mapCentralInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(customControlsDivCentral);
 
 
@@ -386,7 +413,7 @@
             input.className = "controls";
             input.type = "text";
             input.placeholder = "Pesquisar endereço";
-            customControlsDivCentral.appendChild(input); // Adiciona ao novo container
+            customControlsDivCentral.appendChild(input); 
 
             const searchBox = new google.maps.places.SearchBox(input);
 
@@ -452,7 +479,7 @@
 
             // Cria um container principal para os controles do mapTerreno (pesquisa, medição)
             const customControlsDivTerreno = document.createElement("div");
-            customControlsDivTerreno.style.cssText = "display: flex; flex-direction: column; padding: 10px; gap: 5px; background-color: transparent;";
+            customControlsDivTerreno.className = "map-controls-container"; // Usar a classe nova
             mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(customControlsDivTerreno);
 
             // 1. Barra de pesquisa de endereço (agora dentro do novo container)
@@ -461,7 +488,7 @@
             input.className = "controls";
             input.type = "text";
             input.placeholder = "Pesquisar endereço";
-            customControlsDivTerreno.appendChild(input); // Adiciona ao novo container
+            customControlsDivTerreno.appendChild(input);
 
             const searchBox = new google.maps.places.SearchBox(input);
             mapTerrenoInstance.addListener("bounds_changed", () => {
@@ -504,29 +531,33 @@
 
             // 2. Controles de Medição (botões e display de distância)
             const measureButtonsContainer = document.createElement("div");
-            measureButtonsContainer.style.cssText = "display: flex; gap: 5px;"; // Botões lado a lado
-            customControlsDivTerreno.appendChild(measureButtonsContainer); // Adiciona ao container principal de controles
+            measureButtonsContainer.className = "measurement-controls-buttons"; // Nova classe para estilizar os botões
+            customControlsDivTerreno.appendChild(measureButtonsContainer);
 
             const measureButton = document.createElement("button");
             measureButton.textContent = "Medir Distância";
+            measureButton.type = "button"; // Importante para evitar submit de formulário
             measureButton.className = "measure-btn";
-            measureButton.onclick = () => toggleMeasurementMode();
+            measureButton.onclick = (event) => { event.stopPropagation(); toggleMeasurementMode(); }; // Stop propagation para evitar conflito com form
             measureButtonsContainer.appendChild(measureButton);
 
             const clearMeasureButton = document.createElement("button");
             clearMeasureButton.textContent = "Limpar Medição";
+            clearMeasureButton.type = "button"; // Importante para evitar submit de formulário
             clearMeasureButton.className = "clear-btn";
-            clearMeasureButton.onclick = () => clearMeasurement();
+            clearMeasureButton.onclick = (event) => { event.stopPropagation(); clearMeasurement(); }; // Stop propagation
             measureButtonsContainer.appendChild(clearMeasureButton);
 
             distanceDisplayElement = document.createElement("div");
             distanceDisplayElement.className = "distance-display";
-            distanceDisplayElement.textContent = "Distância: 0 m";
-            customControlsDivTerreno.appendChild(distanceDisplayElement); // Adiciona ao container principal de controles
+            distanceDisplayElement.textContent = "Distância: 0.00 m"; // Valor inicial formatado
+            customControlsDivTerreno.appendChild(distanceDisplayElement);
 
             // 3. Adiciona a camada KMZ
+            const kmzUrl = "https://drive.google.com/uc?export=download&id=1qEomYyEZ6ZkdLNTAnFH9Wmm-pVVmH_Zy";
+
             const kmlLayer = new google.maps.KmlLayer(
-                "https://github.com/fabiogrisard/teste/raw/refs/heads/main/Renda%20PR%202022%20(1).kmz",
+                kmzUrl,
                 {
                     map: mapTerrenoInstance,
                     preserveViewport: false // Permite que o mapa se ajuste aos limites do KMZ
@@ -540,14 +571,15 @@
                     console.log("Camada KMZ carregada com sucesso!");
                 } else {
                     console.error("Erro ao carregar a camada KMZ. Status: " + status + ". Verifique a URL e CORS.");
-                    // Possíveis status de erro: INVALID_REQUEST, DOCUMENT_NOT_FOUND, INVALID_DOCUMENT, FETCH_ERROR, LIMIT_EXCEEDED, TIMED_OUT
                 }
             });
 
             // Listener de clique para a camada KMZ (exibe informações do KMZ e extrai renda)
             kmlLayer.addListener("click", function (kmlEvent) {
                 // Se um elemento KMZ foi clicado, processamos as informações dele e não adicionamos ponto de medição.
-                // Também atualizamos as coordenadas e a renda.
+                // Previne cliques de medição de interferir, se estiver ativo
+                if (measurementMode) { return; } 
+
                 const featureData = kmlEvent.featureData;
                 let contentString = '<div class="info-window-content">';
                 contentString += `<h3>${featureData.name || 'Informação sem título'}</h3>`;
@@ -560,39 +592,35 @@
                 });
                 infoWindow.open(mapTerrenoInstance);
 
-                // --- Extrair Renda da descrição do KMZ ---
+                // --- Extrair Renda da descrição do KMZ (agora mais robusto para HTML com tabelas) ---
                 let rendaValue = '';
                 const descriptionHtml = featureData.description || '';
 
                 try {
-                    // Usa DOMParser para tratar a descrição como HTML
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(descriptionHtml, 'text/html');
                     
-                    // Tenta encontrar "Renda:" diretamente no texto do documento
-                    let textContent = doc.body.textContent || doc.body.innerText;
-                    
-                    // Remove múltiplos espaços em branco e novas linhas para facilitar o regex
-                    textContent = textContent.replace(/\s+/g, ' ').trim();
-
-                    // Regex mais flexível para capturar o valor da renda (pode ter R$ ou ser só número)
-                    // Captura qualquer coisa que pareça um número ou texto comum após "Renda:"
-                    const rendaMatch = textContent.match(/Renda:?\s*(.+?)(?:[;\n]|$)/i); 
-                    if (rendaMatch && rendaMatch[1]) {
-                        rendaValue = rendaMatch[1].trim();
-                        // Se houver mais dados na mesma linha após a renda, podemos tentar refinar
-                        // Ex: "Renda: R$ 1.500,00 - Setor: X" -> precisamos pegar só "R$ 1.500,00"
-                        // Poderíamos adicionar mais lógicas aqui para parar em vírgulas, hífens, etc.
-                    } else {
-                        // Tentativa alternativa: procurar por células de tabela se for HTML tabular
-                        const cells = doc.querySelectorAll('td');
-                        for (let i = 0; i < cells.length; i++) {
-                            if (cells[i].textContent.trim().toLowerCase() === 'renda:') {
-                                if (cells[i+1]) { // Verifica se há uma célula de valor seguinte
-                                    rendaValue = cells[i+1].textContent.trim();
-                                    break;
-                                }
+                    // Prioriza a busca em células de tabela (comum em KML gerado por ArcGIS/QGIS)
+                    const cells = doc.querySelectorAll('td');
+                    for (let i = 0; i < cells.length; i++) {
+                        // Verifica se a célula contém 'Renda:' (case-insensitive e com possível espaço/quebra de linha)
+                        // ou se o texto da célula parece ser um label como "Renda"
+                        if (cells[i].textContent.trim().toLowerCase().includes('renda:')) {
+                            // Tenta pegar o valor da célula seguinte
+                            if (cells[i + 1]) {
+                                rendaValue = cells[i + 1].textContent.trim();
+                                break;
                             }
+                        }
+                    }
+
+                    // Se não encontrou em tabela ou a extração da tabela falhou, tenta por regex no texto plano
+                    if (!rendaValue) {
+                        const textContent = (doc.body.textContent || doc.body.innerText).replace(/\s+/g, ' ').trim();
+                        // Regex mais específico para valores monetários/numéricos após "Renda:"
+                        const rendaMatch = textContent.match(/Renda:\s*([Rr\$]?\s*\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)/i); 
+                        if (rendaMatch && rendaMatch[1]) {
+                            rendaValue = rendaMatch[1].trim();
                         }
                     }
 
@@ -606,14 +634,10 @@
 
             // Listener de clique no mapa (para coordenadas e ferramenta de medição)
             mapTerrenoInstance.addListener("click", (mapsMouseEvent) => {
-                // Se estiver no modo de medição, adicione um ponto.
-                // Caso contrário (modo normal), atualize apenas as coordenadas.
                 if (measurementMode) { 
                     addMeasurementPoint(mapsMouseEvent.latLng);
-                    // Não limpa o campo renda aqui, pois estamos medindo, não selecionando um ponto KMZ
                 } else { 
-                    const coords = mapsMouseEvent.latLng.lat() + ',' + mapsMouseEvent.latLng.lng();
-                    document.getElementById('coordenadas').value = coords;
+                    document.getElementById('coordenadas').value = mapsMouseEvent.latLng.lat() + ',' + mapsMouseEvent.latLng.lng();
                     document.getElementById('renda').value = ''; // Limpa o campo renda se clicado fora de uma feição KMZ
                 }
             });
@@ -622,7 +646,7 @@
         // --- Funções da Ferramenta de Medição ---
         function toggleMeasurementMode() {
             measurementMode = !measurementMode;
-            const measureButton = document.querySelector("#mapTerreno .measure-btn"); // Seleciona o botão correto
+            const measureButton = document.querySelector("#mapTerreno .measure-btn"); 
             if (measurementMode) {
                 measureButton.textContent = "Parar Medição";
                 measureButton.classList.add("active");
@@ -633,6 +657,7 @@
                 measureButton.textContent = "Medir Distância";
                 measureButton.classList.remove("active");
                 mapTerrenoInstance.setOptions({draggableCursor: ''}); // Volta o cursor normal
+                distanceDisplayElement.style.display = "none"; // Oculta a exibição quando o modo é desativado
             }
         }
 
@@ -677,7 +702,7 @@
                 }
                 distanceDisplayElement.textContent = `Distância: ${totalDistance.toFixed(2)} m`;
             } else {
-                distanceDisplayElement.textContent = `Distância: 0 m`;
+                distanceDisplayElement.textContent = `Distância: 0.00 m`; // Exibe 0.00m para o primeiro ponto
             }
         }
 
@@ -689,28 +714,32 @@
             measurementMarkers.forEach(marker => marker.setMap(null));
             measurementMarkers = [];
             measurementPoints = [];
-            distanceDisplayElement.textContent = "Distância: 0 m";
+            distanceDisplayElement.textContent = "Distância: 0.00 m";
             distanceDisplayElement.style.display = "none"; // Oculta a exibição quando limpo
 
             if (resetMode) {
                 measurementMode = false; // Reinicia o modo de medição
                 const measureButton = document.querySelector("#mapTerreno .measure-btn");
-                measureButton.textContent = "Medir Distância";
-                measureButton.classList.remove("active");
-                mapTerrenoInstance.setOptions({draggableCursor: ''}); // Volta o cursor normal
+                if(measureButton) { // Checa se o botão existe antes de tentar manipular
+                    measureButton.textContent = "Medir Distância";
+                    measureButton.classList.remove("active");
+                }
+                if(mapTerrenoInstance) { // Checa se o mapa existe
+                    mapTerrenoInstance.setOptions({draggableCursor: ''}); // Volta o cursor normal
+                }
             }
         }
 
         // Função para obter a localização atual do usuário
         function getCurrentLocation() {
-            if (navigator.geolocation && mapTerrenoInstance) { // Checa se mapTerrenoInstance existe
+            if (navigator.geolocation && mapTerrenoInstance) { 
                 navigator.geolocation.getCurrentPosition(function(position) {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     const coords = lat + ',' + lng;
 
                     mapTerrenoInstance.setCenter({ lat: lat, lng: lng });
-                    mapTerrenoInstance.setZoom(15); // Zoom mais próximo na localização atual
+                    mapTerrenoInstance.setZoom(15); 
 
                     // Remove marcador de localização anterior se existir
                     if (currentLocationMarker) {
