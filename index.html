@@ -76,34 +76,33 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-        /* Estilo para as caixas de pesquisa */
+        /* Estilo para as caixas de pesquisa e outros controles */
         .controls {
             background-color: #fff;
             font-family: Roboto, Arial, sans-serif;
             font-size: 15px;
             font-weight: 300;
-            margin-left: 12px;
             padding: 0 11px 0 13px;
             text-overflow: ellipsis;
-            width: 300px;
+            width: 250px; /* Largura ajustada para caber */
             height: 36px;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-shadow: 0 2px 6px rgba(0,0,0,.3);
-            margin-top: 10px;
+            margin-bottom: 5px; /* Espaçamento entre os controles */
         }
         .controls:focus {
             border-color: #4d90fe;
         }
         /* Estilos para os botões de medição */
         .measurement-controls button {
-            margin: 5px 5px 0 0;
             padding: 8px 12px;
             font-size: 14px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             color: white;
+            margin-right: 5px; /* Espaçamento entre botões */
         }
         .measurement-controls button.measure-btn {
             background-color: #28a745; /* Verde */
@@ -188,6 +187,10 @@
 
                 <label for="coordenadas">Coordenadas:</label>
                 <input type="text" id="coordenadas" name="coordenadas" required>
+
+                <!-- Novo campo para a Renda -->
+                <label for="renda">Renda:</label>
+                <input type="text" id="renda" name="renda" readonly>
 
                 <div id="mapTerreno"></div>
                 <button type="button" onclick="getCurrentLocation()">Localizar Minha Posição</button>
@@ -299,6 +302,7 @@
             const link = document.getElementById('link').value;
             const infoImovel = document.getElementById('infoImovel').value;
             const coordenadas = document.getElementById('coordenadas').value;
+            const renda = document.getElementById('renda').value; // Incluído o campo renda
             const tipoRua = document.getElementById('tipoRua').value;
             const esquina = document.getElementById('esquina').value;
             const vocacao = document.getElementById('vocacao').value;
@@ -322,6 +326,7 @@
                 link: link,
                 infoImovel: infoImovel,
                 coordenadas: coordenadas,
+                renda: renda, // Adicionado renda aos dados
                 tipoRua: parseInt(tipoRua),
                 esquina: parseInt(esquina),
                 vocacao: parseInt(vocacao),
@@ -370,13 +375,18 @@
                 zoom: 13,
             });
 
+            // Cria um container para os controles do mapa central
+            const customControlsDivCentral = document.createElement("div");
+            customControlsDivCentral.style.cssText = "display: flex; flex-direction: column; padding: 10px; gap: 5px; background-color: transparent;";
+            mapCentralInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(customControlsDivCentral);
+
+
             const input = document.createElement("input");
             input.id = "pac-input-central";
             input.className = "controls";
             input.type = "text";
             input.placeholder = "Pesquisar endereço";
-
-            mapCentralInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+            customControlsDivCentral.appendChild(input); // Adiciona ao novo container
 
             const searchBox = new google.maps.places.SearchBox(input);
 
@@ -384,7 +394,7 @@
                 searchBox.setBounds(mapCentralInstance.getBounds());
             });
 
-            let searchMarkersCentral = []; // Variável local para marcadores de pesquisa deste mapa
+            let searchMarkersCentral = []; 
 
             searchBox.addListener("places_changed", () => {
                 const places = searchBox.getPlaces();
@@ -429,7 +439,7 @@
                 document.getElementById('centralLocation').value = coords;
             });
 
-            // Chama a inicialização do mapa do terreno após o mapa central, garantindo que ambos sejam criados
+            // Chama a inicialização do mapa do terreno após o mapa central
             initMapTerreno();
         }
 
@@ -440,54 +450,25 @@
                 zoom: 8, // Zoom inicial para o Paraná
             });
 
-            // Adiciona a camada KMZ
-            const kmlLayer = new google.maps.KmlLayer(
-                "https://github.com/fabiogrisard/teste/raw/refs/heads/main/Renda%20PR%202022%20(1).kmz",
-                {
-                    map: mapTerrenoInstance,
-                    preserveViewport: false // Permite que o mapa se ajuste aos limites do KMZ
-                }
-            );
+            // Cria um container principal para os controles do mapTerreno (pesquisa, medição)
+            const customControlsDivTerreno = document.createElement("div");
+            customControlsDivTerreno.style.cssText = "display: flex; flex-direction: column; padding: 10px; gap: 5px; background-color: transparent;";
+            mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(customControlsDivTerreno);
 
-            // Listener de clique para a camada KMZ (exibe informações do KMZ)
-            kmlLayer.addListener("click", function (kmlEvent) {
-                const featureData = kmlEvent.featureData;
-                let contentString = '<div class="info-window-content">';
-                contentString += `<h3>${featureData.name || 'Informação sem título'}</h3>`;
-                contentString += `<p>${featureData.description || 'Nenhuma descrição disponível.'}</p>`;
-                contentString += '</div>';
-
-                const infoWindow = new google.maps.InfoWindow({
-                    content: contentString,
-                    position: kmlEvent.latLng
-                });
-                infoWindow.open(mapTerrenoInstance);
-            });
-
-            // Listener de clique no mapa (para coordenadas e ferramenta de medição)
-            mapTerrenoInstance.addListener("click", (mapsMouseEvent) => {
-                if (!measurementMode) { // Se não estiver no modo de medição, atualiza as coordenadas do input
-                    const coords = mapsMouseEvent.latLng.lat() + ',' + mapsMouseEvent.latLng.lng();
-                    document.getElementById('coordenadas').value = coords;
-                } else { // Se estiver no modo de medição, adiciona ponto para a medição
-                    addMeasurementPoint(mapsMouseEvent.latLng);
-                }
-            });
-
-            // Barra de pesquisa de endereço
+            // 1. Barra de pesquisa de endereço (agora dentro do novo container)
             const input = document.createElement("input");
             input.id = "pac-input-terreno";
             input.className = "controls";
             input.type = "text";
             input.placeholder = "Pesquisar endereço";
-            mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+            customControlsDivTerreno.appendChild(input); // Adiciona ao novo container
 
             const searchBox = new google.maps.places.SearchBox(input);
             mapTerrenoInstance.addListener("bounds_changed", () => {
                 searchBox.setBounds(mapTerrenoInstance.getBounds());
             });
 
-            let searchMarkersTerreno = []; // Variável local para marcadores de pesquisa deste mapa
+            let searchMarkersTerreno = [];
 
             searchBox.addListener("places_changed", () => {
                 const places = searchBox.getPlaces();
@@ -516,51 +497,137 @@
                         bounds.extend(place.geometry.location);
                     }
                     document.getElementById('coordenadas').value = place.geometry.location.lat() + ',' + place.geometry.location.lng();
+                    document.getElementById('renda').value = ''; // Limpa a renda ao pesquisar novo local
                 });
                 mapTerrenoInstance.fitBounds(bounds);
             });
 
-            // --- Integração da Ferramenta de Medição ---
-            const measureControlsDiv = document.createElement("div");
-            measureControlsDiv.className = "measurement-controls";
-            measureControlsDiv.style.padding = "10px";
-            measureControlsDiv.style.backgroundColor = "white";
-            measureControlsDiv.style.borderRadius = "4px";
-            measureControlsDiv.style.boxShadow = "0 2px 6px rgba(0,0,0,.3)";
-            measureControlsDiv.style.marginTop = "10px";
-            measureControlsDiv.style.marginRight = "12px"; // Para alinhar com o lado direito do mapa
+            // 2. Controles de Medição (botões e display de distância)
+            const measureButtonsContainer = document.createElement("div");
+            measureButtonsContainer.style.cssText = "display: flex; gap: 5px;"; // Botões lado a lado
+            customControlsDivTerreno.appendChild(measureButtonsContainer); // Adiciona ao container principal de controles
 
             const measureButton = document.createElement("button");
             measureButton.textContent = "Medir Distância";
             measureButton.className = "measure-btn";
             measureButton.onclick = () => toggleMeasurementMode();
+            measureButtonsContainer.appendChild(measureButton);
 
             const clearMeasureButton = document.createElement("button");
             clearMeasureButton.textContent = "Limpar Medição";
             clearMeasureButton.className = "clear-btn";
             clearMeasureButton.onclick = () => clearMeasurement();
+            measureButtonsContainer.appendChild(clearMeasureButton);
 
             distanceDisplayElement = document.createElement("div");
             distanceDisplayElement.className = "distance-display";
             distanceDisplayElement.textContent = "Distância: 0 m";
+            customControlsDivTerreno.appendChild(distanceDisplayElement); // Adiciona ao container principal de controles
 
-            measureControlsDiv.appendChild(measureButton);
-            measureControlsDiv.appendChild(clearMeasureButton);
-            measureControlsDiv.appendChild(distanceDisplayElement);
+            // 3. Adiciona a camada KMZ
+            const kmlLayer = new google.maps.KmlLayer(
+                "https://github.com/fabiogrisard/teste/raw/refs/heads/main/Renda%20PR%202022%20(1).kmz",
+                {
+                    map: mapTerrenoInstance,
+                    preserveViewport: false // Permite que o mapa se ajuste aos limites do KMZ
+                }
+            );
 
-            mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_RIGHT].push(measureControlsDiv);
-            // -----------------------------------------------------------
+            // Listener para o status de carregamento da camada KMZ (para depuração)
+            kmlLayer.addListener("status_changed", function() {
+                const status = kmlLayer.getStatus();
+                if (status === google.maps.KmlLayerStatus.OK) {
+                    console.log("Camada KMZ carregada com sucesso!");
+                } else {
+                    console.error("Erro ao carregar a camada KMZ. Status: " + status + ". Verifique a URL e CORS.");
+                    // Possíveis status de erro: INVALID_REQUEST, DOCUMENT_NOT_FOUND, INVALID_DOCUMENT, FETCH_ERROR, LIMIT_EXCEEDED, TIMED_OUT
+                }
+            });
+
+            // Listener de clique para a camada KMZ (exibe informações do KMZ e extrai renda)
+            kmlLayer.addListener("click", function (kmlEvent) {
+                // Se um elemento KMZ foi clicado, processamos as informações dele e não adicionamos ponto de medição.
+                // Também atualizamos as coordenadas e a renda.
+                const featureData = kmlEvent.featureData;
+                let contentString = '<div class="info-window-content">';
+                contentString += `<h3>${featureData.name || 'Informação sem título'}</h3>`;
+                contentString += `<p>${featureData.description || 'Nenhuma descrição disponível.'}</p>`;
+                contentString += '</div>';
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: contentString,
+                    position: kmlEvent.latLng
+                });
+                infoWindow.open(mapTerrenoInstance);
+
+                // --- Extrair Renda da descrição do KMZ ---
+                let rendaValue = '';
+                const descriptionHtml = featureData.description || '';
+
+                try {
+                    // Usa DOMParser para tratar a descrição como HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(descriptionHtml, 'text/html');
+                    
+                    // Tenta encontrar "Renda:" diretamente no texto do documento
+                    let textContent = doc.body.textContent || doc.body.innerText;
+                    
+                    // Remove múltiplos espaços em branco e novas linhas para facilitar o regex
+                    textContent = textContent.replace(/\s+/g, ' ').trim();
+
+                    // Regex mais flexível para capturar o valor da renda (pode ter R$ ou ser só número)
+                    // Captura qualquer coisa que pareça um número ou texto comum após "Renda:"
+                    const rendaMatch = textContent.match(/Renda:?\s*(.+?)(?:[;\n]|$)/i); 
+                    if (rendaMatch && rendaMatch[1]) {
+                        rendaValue = rendaMatch[1].trim();
+                        // Se houver mais dados na mesma linha após a renda, podemos tentar refinar
+                        // Ex: "Renda: R$ 1.500,00 - Setor: X" -> precisamos pegar só "R$ 1.500,00"
+                        // Poderíamos adicionar mais lógicas aqui para parar em vírgulas, hífens, etc.
+                    } else {
+                        // Tentativa alternativa: procurar por células de tabela se for HTML tabular
+                        const cells = doc.querySelectorAll('td');
+                        for (let i = 0; i < cells.length; i++) {
+                            if (cells[i].textContent.trim().toLowerCase() === 'renda:') {
+                                if (cells[i+1]) { // Verifica se há uma célula de valor seguinte
+                                    rendaValue = cells[i+1].textContent.trim();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                } catch (e) {
+                    console.warn('Erro ao tentar parsear descrição do KMZ para Renda:', e);
+                }
+                
+                document.getElementById('renda').value = rendaValue;
+                document.getElementById('coordenadas').value = kmlEvent.latLng.lat() + ',' + kmlEvent.latLng.lng();
+            });
+
+            // Listener de clique no mapa (para coordenadas e ferramenta de medição)
+            mapTerrenoInstance.addListener("click", (mapsMouseEvent) => {
+                // Se estiver no modo de medição, adicione um ponto.
+                // Caso contrário (modo normal), atualize apenas as coordenadas.
+                if (measurementMode) { 
+                    addMeasurementPoint(mapsMouseEvent.latLng);
+                    // Não limpa o campo renda aqui, pois estamos medindo, não selecionando um ponto KMZ
+                } else { 
+                    const coords = mapsMouseEvent.latLng.lat() + ',' + mapsMouseEvent.latLng.lng();
+                    document.getElementById('coordenadas').value = coords;
+                    document.getElementById('renda').value = ''; // Limpa o campo renda se clicado fora de uma feição KMZ
+                }
+            });
         }
 
         // --- Funções da Ferramenta de Medição ---
         function toggleMeasurementMode() {
             measurementMode = !measurementMode;
-            const measureButton = mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_RIGHT].getAt(0).querySelector(".measure-btn");
+            const measureButton = document.querySelector("#mapTerreno .measure-btn"); // Seleciona o botão correto
             if (measurementMode) {
                 measureButton.textContent = "Parar Medição";
                 measureButton.classList.add("active");
                 distanceDisplayElement.style.display = "block"; // Exibe a exibição de distância
-                clearMeasurement(); // Limpa qualquer medição anterior ao iniciar
+                clearMeasurement(false); // Limpa medição sem desativar o modo
                 mapTerrenoInstance.setOptions({draggableCursor: 'crosshair'}); // Muda o cursor
             } else {
                 measureButton.textContent = "Medir Distância";
@@ -593,7 +660,7 @@
                 }
                 measurementLine = new google.maps.Polyline({
                     path: measurementPoints,
-                    geodesic: true, // Use o caminho geodésico para distância precisa no mundo real
+                    geodesic: true, // Usa o caminho geodésico para distância precisa no mundo real
                     strokeColor: '#FF0000',
                     strokeOpacity: 1.0,
                     strokeWeight: 3
@@ -614,7 +681,7 @@
             }
         }
 
-        function clearMeasurement() {
+        function clearMeasurement(resetMode = true) {
             if (measurementLine) {
                 measurementLine.setMap(null);
                 measurementLine = null;
@@ -624,16 +691,19 @@
             measurementPoints = [];
             distanceDisplayElement.textContent = "Distância: 0 m";
             distanceDisplayElement.style.display = "none"; // Oculta a exibição quando limpo
-            measurementMode = false; // Reinicia o modo de medição
-            const measureButton = mapTerrenoInstance.controls[google.maps.ControlPosition.TOP_RIGHT].getAt(0).querySelector(".measure-btn");
-            measureButton.textContent = "Medir Distância";
-            measureButton.classList.remove("active");
-            mapTerrenoInstance.setOptions({draggableCursor: ''}); // Volta o cursor normal
+
+            if (resetMode) {
+                measurementMode = false; // Reinicia o modo de medição
+                const measureButton = document.querySelector("#mapTerreno .measure-btn");
+                measureButton.textContent = "Medir Distância";
+                measureButton.classList.remove("active");
+                mapTerrenoInstance.setOptions({draggableCursor: ''}); // Volta o cursor normal
+            }
         }
 
         // Função para obter a localização atual do usuário
         function getCurrentLocation() {
-            if (navigator.geolocation && mapTerrenoInstance) {
+            if (navigator.geolocation && mapTerrenoInstance) { // Checa se mapTerrenoInstance existe
                 navigator.geolocation.getCurrentPosition(function(position) {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
@@ -654,6 +724,7 @@
                     });
 
                     document.getElementById('coordenadas').value = coords;
+                    document.getElementById('renda').value = ''; // Limpa a renda ao localizar a posição atual
                 }, function(error) {
                     alert('Erro ao obter a localização: ' + error.message);
                 });
@@ -674,7 +745,7 @@
         }
     </script>
     <!-- Inclua a API do Google Maps com sua chave de API -->
-    <!-- Adicionado 'geometry' à lista de libraries -->
+    <!-- Adicionado 'geometry' à lista de libraries para cálculo de distância -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAryf15DN6a0iOH72GMB0IaS3qbL44E8G8&libraries=places,geometry&callback=initMapCentral" async defer></script>
 </body>
 </html>
